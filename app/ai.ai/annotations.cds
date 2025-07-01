@@ -1,0 +1,1 @@
+using askService as service from '../../srv/service';

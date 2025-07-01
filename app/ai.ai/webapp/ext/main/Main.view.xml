@@ -1,0 +1,15 @@
+<mvc:View xmlns:core="sap.ui.core"
+          xmlns:mvc="sap.ui.core.mvc"
+          xmlns="sap.m"
+          xmlns:macros="sap.fe.macros"
+          xmlns:html="http://www.w3.org/1999/xhtml"
+          controllerName="ai.ai.ext.main.Main">
+
+  <Page id="Main" title="{i18n>MainTitle}">
+    <content>
+      <VBox id="ButtonVBox" class="sapUiSmallMargin">
+        <Button id="sendPrompt" text="Send prompt" press="onPress" />
+      </VBox>
+    </content>
+  </Page>
+</mvc:View>
