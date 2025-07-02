@@ -6,10 +6,28 @@ sap.ui.define([
   "use strict";
 
   return PageController.extend("ai.ai.ext.main.Main", {
+
+    onChange: function () {
+      const oFileUploader = this.byId("fileUploader");
+      const oFile = oFileUploader.getDomRef("fu")?.files[0];
+
+      if (!oFile) {
+        sap.m.MessageToast.show("Please upload a PDF file.");
+        return;
+      }
+
+      if (oFile.type !== "application/pdf") {
+        sap.m.MessageToast.show("Only PDF files are allowed.");
+        return;
+      }
+
+      sap.m.MessageToast.show("📄 PDF uploaded. Extracting text...");
+    },
+
     onPress: async function () {
       console.log("=== Button clicked ===");
       
-      const sPrompt = "Complete: A capital da Itália é ";
+      const sPrompt = "Complete: A capital da Australia é ";
       
       try {
         // First, let's check what's available

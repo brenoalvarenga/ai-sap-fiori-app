@@ -8,6 +8,11 @@
   <Page id="Main" title="{i18n>MainTitle}">
     <content>
       <VBox id="ButtonVBox" class="sapUiSmallMargin">
+        <u:FileUploader
+                        id="fileUploader"
+                        name="myFileUpload"
+                        width="300px"
+                        change="onChange"/>
         <Button id="sendPrompt" text="Send prompt" press="onPress" />
       </VBox>
     </content>

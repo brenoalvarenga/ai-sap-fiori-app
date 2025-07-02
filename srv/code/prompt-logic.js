@@ -1,5 +1,6 @@
 const path = require("path");
 const dotenv = require("dotenv");
+const { PDFLoader } = require("@langchain/community/document_loaders/fs/pdf");
 
 // Load environment variables
 dotenv.config({ path: path.resolve("env/.env") });
