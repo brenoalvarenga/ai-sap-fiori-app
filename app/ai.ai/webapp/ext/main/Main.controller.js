@@ -7,38 +7,109 @@ sap.ui.define([
 
   return PageController.extend("ai.ai.ext.main.Main", {
 
-    onChange: function () {
+    onChange: async function () {
       const oFileUploader = this.byId("fileUploader");
       const oFile = oFileUploader.getDomRef("fu")?.files[0];
 
       if (!oFile) {
-        sap.m.MessageToast.show("Please upload a PDF file.");
+        MessageToast.show("Please upload a PDF file.");
         return;
       }
 
       if (oFile.type !== "application/pdf") {
-        sap.m.MessageToast.show("Only PDF files are allowed.");
+        MessageToast.show("Only PDF files are allowed.");
         return;
       }
 
-      sap.m.MessageToast.show("📄 PDF uploaded. Extracting text...");
+      sap.ui.core.BusyIndicator.show();
+
+      try {
+        const base64String = await this._readFileAsBase64(oFile);
+
+        const fileID = this._generateUUID();
+        const filename = oFile.name;
+        const uploadedAt = new Date().toISOString();
+
+        const chunkSize = 100000;
+        const totalChunks = Math.ceil(base64String.length / chunkSize);
+
+        for (let i = 0; i < totalChunks; i++) {
+          const chunk = base64String.slice(i * chunkSize, (i + 1) * chunkSize);
+
+          const chunkPayload = {
+            fileID,
+            chunkIndex: i,
+            file: chunk
+          };
+
+          const chunkResponse = await fetch("/service/pdfService/uploadChunk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(chunkPayload)
+          });
+
+          if (!chunkResponse.ok) {
+            const errText = await chunkResponse.text();
+            throw new Error(`Erro no upload do chunk ${i + 1}: ${errText || chunkResponse.statusText}`);
+          }
+        }
+
+        const finalizePayload = { fileID, filename, uploadedAt };
+        const finalizeResponse = await fetch("/service/pdfService/assembleFile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(finalizePayload)
+        });
+
+        const responseText = await finalizeResponse.text();
+
+        if (!finalizeResponse.ok) {
+          throw new Error(`Erro ao montar arquivo: ${responseText || finalizeResponse.statusText}`);
+        }
+
+        let finalizeResult = {};
+        try {
+          finalizeResult = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+          throw new Error(`Erro ao parsear resposta do servidor: ${parseError.message}`);
+        }
+
+        MessageToast.show(finalizeResult.message || "PDF enviado com sucesso!");
+        oFileUploader.clear();
+
+      } catch (error) {
+        MessageBox.error(`Erro ao enviar PDF: ${error.message}`);
+        console.error("Erro no upload do PDF:", error);
+      } finally {
+        sap.ui.core.BusyIndicator.hide();
+      }
+    },
+
+    _readFileAsBase64: function (file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    },
+
+    _generateUUID: function () {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0,
+              v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
     },
 
     onPress: async function () {
       console.log("=== Button clicked ===");
-      
-      const sPrompt = "Complete: A capital da Australia é ";
-      
-      try {
-        // First, let's check what's available
-        console.log("Window location:", window.location.href);
-        console.log("Base URL:", window.location.origin);
-        
-        const serviceUrl = "/service/askService/Ask";
-        console.log("Service URL:", serviceUrl);
 
+      const sPrompt = "Complete: A capital da Australia é ";
+
+      try {
+        const serviceUrl = "/service/askService/Ask";
         const requestBody = { prompt: sPrompt };
-        console.log("Request body:", requestBody);
 
         const response = await fetch(serviceUrl, {
           method: "POST",
@@ -49,49 +120,28 @@ sap.ui.define([
           body: JSON.stringify(requestBody)
         });
 
-        console.log("=== Response received ===");
-        console.log("Status:", response.status);
-        console.log("StatusText:", response.statusText);
-        console.log("OK:", response.ok);
-        console.log("Headers:");
-        for (let [key, value] of response.headers.entries()) {
-          console.log(`  ${key}: ${value}`);
-        }
-
-        // Check if we have any response at all
         const responseText = await response.text();
-        console.log("Response length:", responseText.length);
-        console.log("Response text:", responseText);
 
         if (!response.ok) {
-          console.error("HTTP Error:", response.status, responseText);
           throw new Error(`HTTP ${response.status}: ${responseText || response.statusText}`);
         }
 
         if (!responseText || responseText.trim() === '') {
-          console.error("Empty response received");
           throw new Error("Resposta vazia do servidor");
         }
 
         let result;
         try {
           result = JSON.parse(responseText);
-          console.log("Parsed JSON:", result);
         } catch (parseErr) {
-          console.error("JSON parse error:", parseErr);
-          console.error("Raw response:", responseText);
           throw new Error(`Erro ao parsear JSON: ${parseErr.message}`);
         }
 
         const sResposta = result?.value || result || "Resposta não encontrada";
-        console.log("Final response:", sResposta);
-        
         MessageToast.show(`LLM: ${sResposta}`);
 
       } catch (err) {
-        console.error("=== Error in onPress ===");
-        console.error("Error:", err);
-        console.error("Stack:", err.stack);
+        console.error("=== Error in onPress ===", err);
         MessageBox.error(`Erro detalhado: ${err.message}`);
       }
     }
